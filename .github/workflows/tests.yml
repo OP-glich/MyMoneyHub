@@ -1,0 +1,31 @@
+name: Windows tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+      - name: Test with isolated synthetic databases
+        shell: pwsh
+        env:
+          MYMONEYHUB_DATA_DIR: ${{ runner.temp }}\mymoneyhub-empty
+        run: |
+          .\.venv\Scripts\python.exe -m unittest discover -s tests_stdlib -v
+          .\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider --basetemp "$env:RUNNER_TEMP\mymoneyhub-tests"
+          node --check moneyhub/static/hub.js
+          node tests/frontend_checks.cjs
+      # Never upload financial databases, logs or test artifacts.
